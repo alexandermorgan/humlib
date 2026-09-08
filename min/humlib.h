@@ -1,7 +1,7 @@
 //
 // Programmer:    Craig Stuart Sapp <craig@ccrma.stanford.edu>
 // Creation Date: Sat Aug  8 12:24:49 PDT 2015
-// Last Modified: Sun Aug 16 12:57:50 CEST 2026
+// Last Modified: Thu Aug 27 11:49:37 AM PDT 2026
 // Filename:      min/humlib.h
 // URL:           https://github.com/craigsapp/humlib/blob/master/min/humlib.h
 // Syntax:        C++11
@@ -84,8 +84,12 @@ using std::regex;
 using std::set;
 using std::string;
 using std::stringstream;
+using std::istringstream;
+using std::ostringstream;
 using std::to_string;
 using std::vector;
+using std::min;
+using std::max;
 
 #ifdef USING_URI
 	#include <sys/types.h>   /* socket, connect */
