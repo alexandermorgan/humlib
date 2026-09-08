@@ -123,6 +123,8 @@ class Tool_autocadence : public HumTool {
 		bool        meetsAuthenticBCriteria    (HumdrumFile& infile, int index);
 		bool        hasIncorrectBassizans      (HumdrumFile& infile, int index);
 		bool        hasClosingVoicesAtArrival  (int index);
+		bool        hasNoEnsuingSuspension     (HumdrumFile& infile, int index);
+		bool        isSuspensionLabel          (const std::string& label);
 
 	private:
 

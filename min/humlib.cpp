@@ -1,7 +1,7 @@
 //
 // Programmer:    Craig Stuart Sapp <craig@ccrma.stanford.edu>
 // Creation Date: Sat Aug  8 12:24:49 PDT 2015
-// Last Modified: Tue Sep  8 18:42:08 CEST 2026
+// Last Modified: Tue Sep  8 20:02:06 CEST 2026
 // Filename:      min/humlib.cpp
 // URL:           https://github.com/craigsapp/humlib/blob/master/min/humlib.cpp
 // Syntax:        C++11
@@ -63129,6 +63129,11 @@ bool Tool_autocadence::meetsAuthenticBCriteria(HumdrumFile& infile, int index) {
 		return false;
 	}
 
+	// Strand 3: no suspension (s/g/S/G) from the arrival through two minims later.
+	if (!hasNoEnsuingSuspension(infile, index)) {
+		return false;
+	}
+
 	return true;
 }
 
@@ -63165,6 +63170,65 @@ bool Tool_autocadence::hasClosingVoicesAtArrival(int index) {
 		return false;
 	}
 	return m_closingCounts[index] > 0;
+}
+
+
+
+//////////////////////////////
+//
+// Tool_autocadence::hasNoEnsuingSuspension -- True when no voice has a
+//     suspension or agent label (s, g, S, G) from the cadential arrival
+//     through two minims later, inclusive of both endpoints.  A minim is a
+//     half note (Humdrum duration 2).
+//
+
+bool Tool_autocadence::hasNoEnsuingSuspension(HumdrumFile& infile, int index) {
+	if ((index < 0) || (index >= infile.getLineCount())) {
+		return false;
+	}
+
+	HumNum start = infile[index].getDurationFromStart();
+	HumNum stop  = start + HumNum(4);  // two minims later
+
+	for (int i=index; i<infile.getLineCount(); i++) {
+		if (!infile[i].isData()) {
+			continue;
+		}
+		HumNum t = infile[i].getDurationFromStart();
+		if (t > stop) {
+			break;
+		}
+		for (int j=0; j<infile[i].getFieldCount(); j++) {
+			HTp token = infile.token(i, j);
+			if (!token->isKern()) {
+				continue;
+			}
+			if (isSuspensionLabel(token->getValue("auto", "dissonance"))) {
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+
+
+//////////////////////////////
+//
+// Tool_autocadence::isSuspensionLabel -- True for binary/ternary suspension
+//     or agent labels from the dissonance analysis.
+//
+
+bool Tool_autocadence::isSuspensionLabel(const string& label) {
+	if (label.empty()) {
+		return false;
+	}
+	for (char c : label) {
+		if ((c == 's') || (c == 'S') || (c == 'g') || (c == 'G')) {
+			return true;
+		}
+	}
+	return false;
 }
 
 
