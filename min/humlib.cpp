@@ -1,7 +1,7 @@
 //
 // Programmer:    Craig Stuart Sapp <craig@ccrma.stanford.edu>
 // Creation Date: Sat Aug  8 12:24:49 PDT 2015
-// Last Modified: Tue Sep  8 20:22:28 CEST 2026
+// Last Modified: Tue Sep  8 21:15:07 CEST 2026
 // Filename:      min/humlib.cpp
 // URL:           https://github.com/craigsapp/humlib/blob/master/min/humlib.cpp
 // Syntax:        C++11
@@ -61594,9 +61594,7 @@ void Tool_autocadence::processFile(HumdrumFile& infile) {
 	m_root.resize(infile.getLineCount());
 
 	fillInLastMelodicInterval(infile);
-	if (m_triadQ || m_infoQ) {
-		fillInMajorMinor(infile);
-	}
+	fillInMajorMinor(infile);
 
 	// fill m_pitches and m_lowestPitch and m_lowestPitchIndex
 	preparePitchInfo(infile);
@@ -61664,6 +61662,7 @@ void Tool_autocadence::fillInMajorMinor(HumdrumFile& infile) {
 	options["class"] = false; // show list of unique pitch classes
 	options["rest"] = false;  // include rest
 	options["low"] = false;   // sort pitches from low to high
+	options["partial"] = true; // include incomplete triads (major/minor thirds)
 
 
 	for (int i=0; i<infile.getLineCount(); i++) {
@@ -62898,10 +62897,6 @@ void Tool_autocadence::printIntervalDataLineScore(HumdrumFile& infile,
 	if (!clabel.empty()) {
 		string slabel = sortUniqueChars(clabel);
 		string cadence = getCadenceLabel(slabel, infile, index);
-		//cerr << endl;
-		//cerr << "!! WLABEL" << slabel << endl;
-		//cerr << "!! Cadence" << cadence << endl;
-		//cerr << endl;
 		string infolabel = cadence;
 		if (cadence.empty()) {
 			cadence = "UNKNOWN";
@@ -62914,25 +62909,19 @@ void Tool_autocadence::printIntervalDataLineScore(HumdrumFile& infile,
 			}
 		}
 		bool isPhrygian = getPhrygian(infile, index);
-		//if (infolabel.find("Vera") != string::npos) {
 		cadenceline << "!!LO:TX:a:B:rj:color=red:cadence:t=";
 		if (isPhrygian) {
 			cadence   = "Phrygian\\n" + cadence;
 			infolabel = "Phrygian " + infolabel;
 		}
-		if (infolabel.find("Authentic") != string::npos) {
-			if (!m_root[index].empty()) {
-				cadence += "\\n(" + m_root[index] + ")";
-			}
-		}
-		if (infolabel.find("Vera") != string::npos) {
-			if (!m_root[index].empty()) {
-				cadence += " (" + m_root[index] + ")";
-			}
-		}
 		cadenceline << cadence;
 		if (m_infoQ) {
 			m_info << "cvf=" << slabel << "\tcadence=" << infolabel << "\\nZZZ" << "\tM=" << m_barnum.at(index) << "\tfile=" << infile.getFilename() << endl;
+		}
+	} else if (meetsAuthenticBCriteria(infile, index)) {
+		cadenceline << "!!LO:TX:a:B:rj:color=red:cadence:t=AuthenticB";
+		if (m_infoQ) {
+			m_info << "cvf=\tcadence=AuthenticB\\nZZZ" << "\tM=" << m_barnum.at(index) << "\tfile=" << infile.getFilename() << endl;
 		}
 	}
 
@@ -63046,6 +63035,8 @@ void Tool_autocadence::printIntervalDataLineScore(HumdrumFile& infile,
 //
 // Tool_autocadence::getCadenceLabel -- Look up the CVF combination label,
 //     then apply AuthenticB if every AuthenticB analysis strand passes.
+//     AuthenticB does not require a CVF match; that case is handled when
+//     printing a line that has no CVF labels.
 //
 
 string Tool_autocadence::getCadenceLabel(const string& cvflabel, HumdrumFile &infile, int index) {
@@ -63135,6 +63126,12 @@ bool Tool_autocadence::meetsAuthenticBCriteria(HumdrumFile& infile, int index) {
 		return false;
 	}
 
+	// Strand 4: last --root observation before the arrival is an uppercase
+	// letter (major triad or major third).  CVF matches are not required.
+	if (!hasPreviousMajorSonority(index)) {
+		return false;
+	}
+
 	return true;
 }
 
@@ -63144,8 +63141,8 @@ bool Tool_autocadence::meetsAuthenticBCriteria(HumdrumFile& infile, int index) {
 //
 // Tool_autocadence::prepareExtremisBassizans -- Run Tool_extremis for the
 //     synthetic lowest line, then store that line's last melodic interval
-//     at each original data line.  Continuation nulls inherit the interval
-//     of the attack they sustain.
+//     only on extremis note attacks.  Continuation slices (null tokens and
+//     tie sustainations) keep 0 so AuthenticB labels only the bass arrival.
 //
 
 void Tool_autocadence::prepareExtremisBassizans(HumdrumFile& infile) {
@@ -63196,7 +63193,6 @@ void Tool_autocadence::prepareExtremisBassizans(HumdrumFile& infile) {
 	}
 
 	vector<int> lowLastmel(lowfile.getLineCount(), 0);
-	int carried = 0;
 	for (int i=0; i<lowfile.getLineCount(); i++) {
 		if (!lowfile[i].isData()) {
 			continue;
@@ -63208,16 +63204,14 @@ void Tool_autocadence::prepareExtremisBassizans(HumdrumFile& infile) {
 				break;
 			}
 		}
-		if (!token) {
-			continue;
-		}
-		if (token->isNull()) {
-			lowLastmel[i] = carried;
+		if (!token || token->isNull() || token->isRest() ||
+				token->isSecondaryTiedNote()) {
 			continue;
 		}
 		auto found = lastmelByToken.find(token);
-		carried = (found == lastmelByToken.end()) ? 0 : found->second;
-		lowLastmel[i] = carried;
+		if (found != lastmelByToken.end()) {
+			lowLastmel[i] = found->second;
+		}
 	}
 
 	vector<int> origData;
@@ -63246,8 +63240,8 @@ void Tool_autocadence::prepareExtremisBassizans(HumdrumFile& infile) {
 //////////////////////////////
 //
 // Tool_autocadence::hasIncorrectBassizans -- True when the extremis lowest
-//     line is approached by a falling fifth (-5) or a rising fourth (4) at
-//     the arrival, including when that motion is a voice transfer.
+//     line attacks at this slice, approached by a falling fifth (-5) or a
+//     rising fourth (4), including when that motion is a voice transfer.
 //
 
 bool Tool_autocadence::hasIncorrectBassizans(int index) {
@@ -63328,6 +63322,46 @@ bool Tool_autocadence::isSuspensionLabel(const string& label) {
 	for (char c : label) {
 		if ((c == 's') || (c == 'S') || (c == 'g') || (c == 'G')) {
 			return true;
+		}
+	}
+	return false;
+}
+
+
+
+//////////////////////////////
+//
+// Tool_autocadence::hasPreviousMajorSonority -- True when the last --root
+//     observation before the arrival starts with an uppercase letter, which
+//     is the proxy for a major triad or a major third.
+//
+
+bool Tool_autocadence::hasPreviousMajorSonority(int index) {
+	for (int i=index-1; i>=0; i--) {
+		if (i >= (int)m_root.size()) {
+			continue;
+		}
+		const string& root = m_root[i];
+		if (root.empty() || (root == ".")) {
+			continue;
+		}
+		return isUppercaseRootObservation(root);
+	}
+	return false;
+}
+
+
+
+//////////////////////////////
+//
+// Tool_autocadence::isUppercaseRootObservation -- True when a --root token
+//     contains an alphabetic pitch letter that is uppercase.
+//
+
+bool Tool_autocadence::isUppercaseRootObservation(const string& root) {
+	for (unsigned char c : root) {
+		if (std::isalpha(c)) {
+			return std::isupper(c);
 		}
 	}
 	return false;
