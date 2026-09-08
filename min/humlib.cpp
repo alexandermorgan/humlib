@@ -1,7 +1,7 @@
 //
 // Programmer:    Craig Stuart Sapp <craig@ccrma.stanford.edu>
 // Creation Date: Sat Aug  8 12:24:49 PDT 2015
-// Last Modified: Thu Aug 27 11:49:37 AM PDT 2026
+// Last Modified: Tue Sep  8 18:42:08 CEST 2026
 // Filename:      min/humlib.cpp
 // URL:           https://github.com/craigsapp/humlib/blob/master/min/humlib.cpp
 // Syntax:        C++11
@@ -61634,6 +61634,8 @@ void Tool_autocadence::processFile(HumdrumFile& infile) {
 		}
 	}
 
+	prepareAuthenticBAnalyses(infile);
+
 	// markup score with matches and CVF
 	markupScore(infile);
 	printScore(infile);
@@ -63042,23 +63044,127 @@ void Tool_autocadence::printIntervalDataLineScore(HumdrumFile& infile,
 
 //////////////////////////////
 //
-// Tool_autocadence::getCadenceLabel
-//
-// Ammdedation: If the CVF point forms an incorrect basizans, then label it AuthenticB
+// Tool_autocadence::getCadenceLabel -- Look up the CVF combination label,
+//     then apply AuthenticB if every AuthenticB analysis strand passes.
 //
 
 string Tool_autocadence::getCadenceLabel(const string& cvflabel, HumdrumFile &infile, int index) {
-	//cerr << "INDEX = " << index << endl;
 	string label = m_cadenceLabels[cvflabel];
-	int lowestIndex = m_lowestPitchIndex.at(index);
-	//cerr << "LOWESTINDEX = " << lowestIndex << endl;
-	HTp token = infile.token(index, lowestIndex);
-	int lastmel = token->getValueInt("auto", "lastmel");
-	if (lastmel == -5 || lastmel == 4) {
+	if (meetsAuthenticBCriteria(infile, index)) {
 		return "AuthenticB";
 	}
 	return label;
+}
 
+
+
+//////////////////////////////
+//
+// Tool_autocadence::prepareAuthenticBAnalyses -- Run supporting analyses used
+//     by AuthenticB.  Add new strand preparations here as they are introduced.
+//
+
+void Tool_autocadence::prepareAuthenticBAnalyses(HumdrumFile& infile) {
+	prepareClosingCounts(infile);
+}
+
+
+
+//////////////////////////////
+//
+// Tool_autocadence::prepareClosingCounts -- Count closing voices at each
+//     observation point, using the same metric as Tool_closing.  The closing
+//     tool itself is left unchanged; only its analysis API is reused here.
+//
+
+void Tool_autocadence::prepareClosingCounts(HumdrumFile& infile) {
+	infile.analyzeClosingRests();
+	m_closingCounts.clear();
+	m_closingCounts.resize(infile.getLineCount(), -1);
+
+	// A staff with more than one layer can have several closing events on the
+	// same line, but it is a single voice, so count each track only once.
+	vector<bool> counted(infile.getTrackCount() + 1, false);
+
+	for (int i=0; i<infile.getLineCount(); i++) {
+		if (!infile[i].isData()) {
+			continue;
+		}
+		fill(counted.begin(), counted.end(), false);
+		int sum = 0;
+		for (int j=0; j<infile[i].getFieldCount(); j++) {
+			HTp token = infile.token(i, j);
+			if (!infile.isClosingEvent(token)) {
+				continue;
+			}
+			int track = token->getTrack();
+			if (counted[track]) {
+				continue;
+			}
+			counted[track] = true;
+			sum++;
+		}
+		m_closingCounts[i] = sum;
+	}
+}
+
+
+
+//////////////////////////////
+//
+// Tool_autocadence::meetsAuthenticBCriteria -- Combine independent analysis
+//     strands that must all pass before a cadence is labeled AuthenticB.
+//     Add further strands as additional checks below.
+//
+
+bool Tool_autocadence::meetsAuthenticBCriteria(HumdrumFile& infile, int index) {
+	// Strand 1: lowest-sounding voice approaches by an "incorrect" bassizans
+	// (falling fifth or rising fourth).
+	if (!hasIncorrectBassizans(infile, index)) {
+		return false;
+	}
+
+	// Strand 2: at least one voice closes at the cadential arrival.
+	if (!hasClosingVoicesAtArrival(index)) {
+		return false;
+	}
+
+	return true;
+}
+
+
+
+//////////////////////////////
+//
+// Tool_autocadence::hasIncorrectBassizans -- True when the lowest sounding
+//     pitch at the arrival is approached by a falling fifth (-5) or a rising
+//     fourth (4).
+//
+
+bool Tool_autocadence::hasIncorrectBassizans(HumdrumFile& infile, int index) {
+	if ((index < 0) || (index >= (int)m_lowestPitchIndex.size())) {
+		return false;
+	}
+	int lowestIndex = m_lowestPitchIndex.at(index);
+	HTp token = infile.token(index, lowestIndex);
+	int lastmel = token->getValueInt("auto", "lastmel");
+	return (lastmel == -5) || (lastmel == 4);
+}
+
+
+
+//////////////////////////////
+//
+// Tool_autocadence::hasClosingVoicesAtArrival -- True when the closing-voice
+//     count at the cadential arrival is greater than 0.  A 0 (or non-data
+//     line) blocks the AuthenticB label.
+//
+
+bool Tool_autocadence::hasClosingVoicesAtArrival(int index) {
+	if ((index < 0) || (index >= (int)m_closingCounts.size())) {
+		return false;
+	}
+	return m_closingCounts[index] > 0;
 }
 
 

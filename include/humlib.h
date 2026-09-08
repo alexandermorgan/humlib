@@ -1,7 +1,7 @@
 //
 // Programmer:    Craig Stuart Sapp <craig@ccrma.stanford.edu>
 // Creation Date: Sat Aug  8 12:24:49 PDT 2015
-// Last Modified: Sun Aug 16 12:52:36 CEST 2026
+// Last Modified: Tue Sep  8 18:39:21 CEST 2026
 // Filename:      min/humlib.h
 // URL:           https://github.com/craigsapp/humlib/blob/master/min/humlib.h
 // Syntax:        C++11
@@ -84,8 +84,12 @@ using std::regex;
 using std::set;
 using std::string;
 using std::stringstream;
+using std::istringstream;
+using std::ostringstream;
 using std::to_string;
 using std::vector;
+using std::min;
+using std::max;
 
 #ifdef USING_URI
 	#include <sys/types.h>   /* socket, connect */
@@ -6234,6 +6238,11 @@ class Tool_autocadence : public HumTool {
 		std::string getIntervalName            (const std::string& b40);
 		std::string getTriadData               (HumdrumFile& infile, int line);
 		std::string getCadenceLabel            (const std::string& cvflabel, HumdrumFile& infile, int index);
+		void        prepareAuthenticBAnalyses  (HumdrumFile& infile);
+		void        prepareClosingCounts       (HumdrumFile& infile);
+		bool        meetsAuthenticBCriteria    (HumdrumFile& infile, int index);
+		bool        hasIncorrectBassizans      (HumdrumFile& infile, int index);
+		bool        hasClosingVoicesAtArrival  (int index);
 
 	private:
 
@@ -6308,6 +6317,10 @@ class Tool_autocadence : public HumTool {
 
 		// m_lastmel: The last melodic interval (diatonic)
 		std::vector<std::vector<std::string>> m_lastmel;
+
+		// m_closingCounts: closing-voice count at each line, matching Tool_closing.
+		// Data lines are 0 or more; non-data lines are -1.
+		std::vector<int> m_closingCounts;
 
 		bool m_hasSuspensionMarkersQ = false;
 
