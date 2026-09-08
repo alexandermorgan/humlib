@@ -1,7 +1,7 @@
 //
 // Programmer:    Craig Stuart Sapp <craig@ccrma.stanford.edu>
 // Creation Date: Sat Aug  8 12:24:49 PDT 2015
-// Last Modified: Tue Sep  8 20:02:06 CEST 2026
+// Last Modified: Tue Sep  8 20:22:28 CEST 2026
 // Filename:      min/humlib.h
 // URL:           https://github.com/craigsapp/humlib/blob/master/min/humlib.h
 // Syntax:        C++11
@@ -6240,8 +6240,9 @@ class Tool_autocadence : public HumTool {
 		std::string getCadenceLabel            (const std::string& cvflabel, HumdrumFile& infile, int index);
 		void        prepareAuthenticBAnalyses  (HumdrumFile& infile);
 		void        prepareClosingCounts       (HumdrumFile& infile);
+		void        prepareExtremisBassizans   (HumdrumFile& infile);
 		bool        meetsAuthenticBCriteria    (HumdrumFile& infile, int index);
-		bool        hasIncorrectBassizans      (HumdrumFile& infile, int index);
+		bool        hasIncorrectBassizans      (int index);
 		bool        hasClosingVoicesAtArrival  (int index);
 		bool        hasNoEnsuingSuspension     (HumdrumFile& infile, int index);
 		bool        isSuspensionLabel          (const std::string& label);
@@ -6323,6 +6324,11 @@ class Tool_autocadence : public HumTool {
 		// m_closingCounts: closing-voice count at each line, matching Tool_closing.
 		// Data lines are 0 or more; non-data lines are -1.
 		std::vector<int> m_closingCounts;
+
+		// m_extremisLastmel: last melodic interval of the extremis lowest
+		// line at each original-file line (diatonic interval name as int,
+		// e.g. 4 or -5).  0 means no interval / rest.
+		std::vector<int> m_extremisLastmel;
 
 		bool m_hasSuspensionMarkersQ = false;
 

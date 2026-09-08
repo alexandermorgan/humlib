@@ -1,7 +1,7 @@
 //
 // Programmer:    Craig Stuart Sapp <craig@ccrma.stanford.edu>
 // Creation Date: Sat Aug  8 12:24:49 PDT 2015
-// Last Modified: Tue Sep  8 20:02:06 CEST 2026
+// Last Modified: Tue Sep  8 20:22:28 CEST 2026
 // Filename:      min/humlib.cpp
 // URL:           https://github.com/craigsapp/humlib/blob/master/min/humlib.cpp
 // Syntax:        C++11
@@ -63066,6 +63066,7 @@ string Tool_autocadence::getCadenceLabel(const string& cvflabel, HumdrumFile &in
 
 void Tool_autocadence::prepareAuthenticBAnalyses(HumdrumFile& infile) {
 	prepareClosingCounts(infile);
+	prepareExtremisBassizans(infile);
 }
 
 
@@ -63118,9 +63119,9 @@ void Tool_autocadence::prepareClosingCounts(HumdrumFile& infile) {
 //
 
 bool Tool_autocadence::meetsAuthenticBCriteria(HumdrumFile& infile, int index) {
-	// Strand 1: lowest-sounding voice approaches by an "incorrect" bassizans
-	// (falling fifth or rising fourth).
-	if (!hasIncorrectBassizans(infile, index)) {
+	// Strand 1: extremis lowest line approaches by an "incorrect" bassizans
+	// (falling fifth or rising fourth), including voice transfers.
+	if (!hasIncorrectBassizans(index)) {
 		return false;
 	}
 
@@ -63141,18 +63142,119 @@ bool Tool_autocadence::meetsAuthenticBCriteria(HumdrumFile& infile, int index) {
 
 //////////////////////////////
 //
-// Tool_autocadence::hasIncorrectBassizans -- True when the lowest sounding
-//     pitch at the arrival is approached by a falling fifth (-5) or a rising
-//     fourth (4).
+// Tool_autocadence::prepareExtremisBassizans -- Run Tool_extremis for the
+//     synthetic lowest line, then store that line's last melodic interval
+//     at each original data line.  Continuation nulls inherit the interval
+//     of the attack they sustain.
 //
 
-bool Tool_autocadence::hasIncorrectBassizans(HumdrumFile& infile, int index) {
-	if ((index < 0) || (index >= (int)m_lowestPitchIndex.size())) {
+void Tool_autocadence::prepareExtremisBassizans(HumdrumFile& infile) {
+	m_extremisLastmel.clear();
+	m_extremisLastmel.resize(infile.getLineCount(), 0);
+
+	HumdrumFile efile;
+	stringstream ess;
+	ess << infile;
+	efile.readString(ess.str());
+
+	Tool_extremis extremis;
+	extremis.run(efile);
+	if (!extremis.hasHumdrumText()) {
+		return;
+	}
+
+	HumdrumFile lowfile;
+	lowfile.readString(extremis.getHumdrumText());
+
+	vector<HTp> sstarts;
+	lowfile.getKernSpineStartList(sstarts);
+	if (sstarts.empty()) {
+		return;
+	}
+
+	vector<HTp> notes;
+	getTokenList(sstarts[0], notes);
+	vector<int> diatonic;
+	vector<string> interval;
+	calculateVoiceIntervals(notes, diatonic, interval);
+
+	map<HTp, int> lastmelByToken;
+	for (int j=0; j<(int)notes.size(); j++) {
+		if (interval.at(j).empty()) {
+			continue;
+		}
+		string iname = getIntervalName(interval.at(j));
+		int value = 0;
+		if (iname != "R") {
+			try {
+				value = stoi(iname);
+			} catch (...) {
+				value = 0;
+			}
+		}
+		lastmelByToken[notes.at(j)] = value;
+	}
+
+	vector<int> lowLastmel(lowfile.getLineCount(), 0);
+	int carried = 0;
+	for (int i=0; i<lowfile.getLineCount(); i++) {
+		if (!lowfile[i].isData()) {
+			continue;
+		}
+		HTp token = NULL;
+		for (int j=0; j<lowfile[i].getFieldCount(); j++) {
+			if (lowfile.token(i, j)->isKern()) {
+				token = lowfile.token(i, j);
+				break;
+			}
+		}
+		if (!token) {
+			continue;
+		}
+		if (token->isNull()) {
+			lowLastmel[i] = carried;
+			continue;
+		}
+		auto found = lastmelByToken.find(token);
+		carried = (found == lastmelByToken.end()) ? 0 : found->second;
+		lowLastmel[i] = carried;
+	}
+
+	vector<int> origData;
+	vector<int> lowData;
+	for (int i=0; i<infile.getLineCount(); i++) {
+		if (infile[i].isData()) {
+			origData.push_back(i);
+		}
+	}
+	for (int i=0; i<lowfile.getLineCount(); i++) {
+		if (lowfile[i].isData()) {
+			lowData.push_back(i);
+		}
+	}
+	if (origData.size() != lowData.size()) {
+		cerr << "DATA LINE COUNTS OF FILES FOR EXTREMIS ANALYSIS DO NOT MATCH." << endl;
+		return;
+	}
+	for (int k=0; k<(int)origData.size(); k++) {
+		m_extremisLastmel[origData[k]] = lowLastmel[lowData[k]];
+	}
+}
+
+
+
+//////////////////////////////
+//
+// Tool_autocadence::hasIncorrectBassizans -- True when the extremis lowest
+//     line is approached by a falling fifth (-5) or a rising fourth (4) at
+//     the arrival, including when that motion is a voice transfer.
+//
+
+bool Tool_autocadence::hasIncorrectBassizans(int index) {
+	if ((index < 0) || (index >= (int)m_extremisLastmel.size())) {
 		return false;
 	}
-	int lowestIndex = m_lowestPitchIndex.at(index);
-	HTp token = infile.token(index, lowestIndex);
-	int lastmel = token->getValueInt("auto", "lastmel");
+	int lastmel = m_extremisLastmel[index];
 	return (lastmel == -5) || (lastmel == 4);
 }
 
