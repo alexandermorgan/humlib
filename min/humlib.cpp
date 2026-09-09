@@ -1,7 +1,7 @@
 //
 // Programmer:    Craig Stuart Sapp <craig@ccrma.stanford.edu>
 // Creation Date: Sat Aug  8 12:24:49 PDT 2015
-// Last Modified: Tue Sep  8 21:15:07 CEST 2026
+// Last Modified: Wed Sep  9 11:29:25 CEST 2026
 // Filename:      min/humlib.cpp
 // URL:           https://github.com/craigsapp/humlib/blob/master/min/humlib.cpp
 // Syntax:        C++11
@@ -63977,7 +63977,7 @@ void Tool_autocadence::prepareCadenceDefinitions(void) {
 	m_definitions.clear();
 	m_definitions.reserve(200);
 
-	// /* Index */                 LowserCVF, UpperCVF, Name, Regex
+	// /* Index */                 LowerCVF, UpperCVF, Name, Regex
 	/*   0 */ addCadenceDefinition("", "",		"__1",	R"(^(?:-?\d+|R)_1:-?\d+, 7_1:-2, 6_R:-2, R_)");
 	/*   1 */ addCadenceDefinition("", "",		"__2",	R"(^[^R]_1, 2_1:-2, (?:1|8)_-3:2, 4D?_)");
 	/*   2 */ addCadenceDefinition("", "",		"__3",	R"(^[^R]_1:, 4D_1:-2, 3_1:-2, 2_1:2, 3_-3:2, 6_)");
@@ -64024,6 +64024,7 @@ void Tool_autocadence::prepareCadenceDefinitions(void) {
 	/*  43 */ addCadenceDefinition("C", "t",	"ct2",	R"(^(?:-?\d+|R)_1:-?\d+, 2_-2:1, 3_1:1, 3_-2:1, 4D?_2:1, 3_2:2, 3_)");
 	/*  44 */ addCadenceDefinition("C", "t",	"ct3",	R"(^(?:-?\d+|R)_1:-?\d+, 2_-2:1, 3_2:2, 3_)");
 	/*  45 */ addCadenceDefinition("C", "t",	"ct4",	R"(^3_2:1, 2_-2:1, 3_2:2, 3_)");
+	/*  42 */ addCadenceDefinition("C", "t",	"ct5",	R"(^(?:-?\d+|R)_1:-?\d+, 2_-2:1, 3_-2:1, 4D?_2:1, 3_2:2, 3_)");
 	/*  46 */ addCadenceDefinition("C", "u",	"Cu1",	R"(^(?:-?\d+|R)_1:-?\d+, -4D_-2:1, -3_-2:1, -2_2:1, -3_2:-3, -6_)");
 	/*  47 */ addCadenceDefinition("C", "u",	"Cu2",	R"(^(?:-?\d+|R)_1:-?\d+, -4D_-2:1, -3_-2:1, -2_3:-3, -6_)");
 	/*  48 */ addCadenceDefinition("C", "u",	"Cu3",	R"(^(?:-?\d+|R)_1:-?\d+, -4D_-2:1, -3_1:1, -3_-2:1, -2_3:-3, -6_)");
@@ -64045,12 +64046,10 @@ void Tool_autocadence::prepareCadenceDefinitions(void) {
 	/*  64 */ addCadenceDefinition("S", "C",	"SC1",	R"(^(?:R_1|-?\d+_-?[^1]):1, 2_1:-2, (?:1|8)_-3:2, 4D?_)");
 	/*  65 */ addCadenceDefinition("S", "C",	"SC2",	R"(^(?:R_1|-?\d+_-?[^1]):1, 2_1:-2, (?:1|8)_1:1, (?:1|8)_-3:2, 4D?_)");
 	/*  66 */ addCadenceDefinition("T", "A",	"TA1",	R"(^(?:R_1|-?\d+_-?[^1]):1, 4D_1:-2, 3_-2:2, 5_)");
-	/*  67 */ addCadenceDefinition("T", "A",	"TA2",	R"(^(?:R_1|-?\d+_-?[^1]):1, 4D_1:-2, 3_-2:2, 5_)");
-	/*  68 */ addCadenceDefinition("T", "A",	"TA3",	R"(^(?:R_1|-?\d+_-?[^1]):1, 4D_1:-2, 3_-2:2, 5_)");
-	/*  69 */ addCadenceDefinition("T", "A",	"TA4",	R"(^(?:R_1|-?\d+_-?[^1]):1, 4D_1:-2, 3_1:-2, 2_-2:3, 5_)");
-	/*  70 */ addCadenceDefinition("T", "A",	"TA5",	R"(^(?:R_1|-?\d+_-?[^1]):1, 4D_1:-2, 3_1:-2, 2_1:2, 3_-2:2, 5_)");
-	/*  71 */ addCadenceDefinition("T", "A",	"TA6",	R"(^(?:R_1|-?\d+_-?[^1]):1, 4D_1:-2, 3_1:-2, 2_1:2, 3_1:1, 3_-2:2, 5_)");
-	/*  72 */ addCadenceDefinition("T", "A",	"TA7",	R"(^(?:R_1|-?\d+_-?[^1]):1, 4D_1:-2, 3_1:1, 3_1:-2, 2_-2:3, 5_)");
+	/*  69 */ addCadenceDefinition("T", "A",	"TA2",	R"(^(?:R_1|-?\d+_-?[^1]):1, 4D_1:-2, 3_1:-2, 2_-2:3, 5_)");
+	/*  70 */ addCadenceDefinition("T", "A",	"TA3",	R"(^(?:R_1|-?\d+_-?[^1]):1, 4D_1:-2, 3_1:-2, 2_1:2, 3_-2:2, 5_)");
+	/*  71 */ addCadenceDefinition("T", "A",	"TA4",	R"(^(?:R_1|-?\d+_-?[^1]):1, 4D_1:-2, 3_1:-2, 2_1:2, 3_1:1, 3_-2:2, 5_)");
+	/*  72 */ addCadenceDefinition("T", "A",	"TA5",	R"(^(?:R_1|-?\d+_-?[^1]):1, 4D_1:-2, 3_1:1, 3_1:-2, 2_-2:3, 5_)");
 	/*  73 */ addCadenceDefinition("T", "C",	"TC1",	R"(^(?:R_1|7_1|-?\d+_-?[^1]):1, 7?_1:-2, 6_-2:2, 8_)");
 	/*  74 */ addCadenceDefinition("T", "C",	"TC2",	R"(^(?:R_1|7_1|-?\d+_-?[^1]):1, 7?_1:-2, 6_1:-2, 5_-2:3, 8_)");
 	/*  75 */ addCadenceDefinition("T", "C",	"TC3",	R"(^(?:R_1|7_1|-?\d+_-?[^1]):1, 7?_1:-2, 6_1:-2, 5_1:2, 6_-2:2, 8_)");

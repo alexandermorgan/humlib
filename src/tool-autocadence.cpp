@@ -2819,6 +2819,7 @@ void Tool_autocadence::prepareCadenceDefinitions(void) {
 	/*  43 */ addCadenceDefinition("C", "t",	"ct2",	R"(^(?:-?\d+|R)_1:-?\d+, 2_-2:1, 3_1:1, 3_-2:1, 4D?_2:1, 3_2:2, 3_)");
 	/*  44 */ addCadenceDefinition("C", "t",	"ct3",	R"(^(?:-?\d+|R)_1:-?\d+, 2_-2:1, 3_2:2, 3_)");
 	/*  45 */ addCadenceDefinition("C", "t",	"ct4",	R"(^3_2:1, 2_-2:1, 3_2:2, 3_)");
+	/*  42 */ addCadenceDefinition("C", "t",	"ct5",	R"(^(?:-?\d+|R)_1:-?\d+, 2_-2:1, 3_-2:1, 4D?_2:1, 3_2:2, 3_)");
 	/*  46 */ addCadenceDefinition("C", "u",	"Cu1",	R"(^(?:-?\d+|R)_1:-?\d+, -4D_-2:1, -3_-2:1, -2_2:1, -3_2:-3, -6_)");
 	/*  47 */ addCadenceDefinition("C", "u",	"Cu2",	R"(^(?:-?\d+|R)_1:-?\d+, -4D_-2:1, -3_-2:1, -2_3:-3, -6_)");
 	/*  48 */ addCadenceDefinition("C", "u",	"Cu3",	R"(^(?:-?\d+|R)_1:-?\d+, -4D_-2:1, -3_1:1, -3_-2:1, -2_3:-3, -6_)");
