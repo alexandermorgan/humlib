@@ -1,7 +1,7 @@
 //
 // Programmer:    Craig Stuart Sapp <craig@ccrma.stanford.edu>
 // Creation Date: Sat Aug  8 12:24:49 PDT 2015
-// Last Modified: Wed Sep  9 11:46:25 CEST 2026
+// Last Modified: Wed Sep  9 12:21:09 CEST 2026
 // Filename:      min/humlib.cpp
 // URL:           https://github.com/craigsapp/humlib/blob/master/min/humlib.cpp
 // Syntax:        C++11
@@ -63132,6 +63132,12 @@ bool Tool_autocadence::meetsAuthenticBCriteria(HumdrumFile& infile, int index) {
 		return false;
 	}
 
+	// Strand 5: a voice moves from the leading tone up by semitone onto
+	// the root of the arrival chord, in that same voice, at the arrival.
+	if (!hasLeadingToneToRoot(infile, index)) {
+		return false;
+	}
+
 	return true;
 }
 
@@ -63365,6 +63371,142 @@ bool Tool_autocadence::isUppercaseRootObservation(const string& root) {
 		}
 	}
 	return false;
+}
+
+
+
+//////////////////////////////
+//
+// Tool_autocadence::hasLeadingToneToRoot -- True when a voice attacks the
+//     arrival-chord root at the cadential arrival, approached in that same
+//     voice by a rising semitone (the leading tone).  A leading tone that
+//     merely sounds in another voice, or that does not resolve in the same
+//     voice, does not count.
+//
+
+bool Tool_autocadence::hasLeadingToneToRoot(HumdrumFile& infile, int index) {
+	if ((index < 0) || (index >= infile.getLineCount())) {
+		return false;
+	}
+	if (!infile[index].isData()) {
+		return false;
+	}
+
+	int rootPc = -1;
+	if (index < (int)m_root.size()) {
+		rootPc = rootObservationToPitchClass(m_root[index]);
+	}
+	if (rootPc < 0) {
+		return false;
+	}
+
+	for (int j=0; j<infile[index].getFieldCount(); j++) {
+		HTp token = infile.token(index, j);
+		if (!token->isKern()) {
+			continue;
+		}
+		if (token->isNull() || token->isRest() || token->isSecondaryTiedNote()) {
+			continue;
+		}
+
+		vector<int> arrivalMidi = token->getMidiPitches();
+		HTp prev = token->getPreviousToken();
+		while (prev) {
+			if (prev->isData() && !prev->isNull()) {
+				break;
+			}
+			prev = prev->getPreviousToken();
+		}
+		if (!prev || prev->isRest()) {
+			continue;
+		}
+		vector<int> prevMidi = prev->getMidiPitches();
+
+		for (int arrival : arrivalMidi) {
+			int arr = arrival < 0 ? -arrival : arrival;
+			if (arr <= 0) {
+				continue;
+			}
+			if ((arr % 12) != rootPc) {
+				continue;
+			}
+			for (int previous : prevMidi) {
+				int pre = previous < 0 ? -previous : previous;
+				if (pre <= 0) {
+					continue;
+				}
+				if (arr - pre == 1) {
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
+
+
+//////////////////////////////
+//
+// Tool_autocadence::rootObservationToPitchClass -- Pitch class (C=0) of a
+//     --root token such as "F", "B♭", or "g".  Returns -1 if none.
+//
+
+int Tool_autocadence::rootObservationToPitchClass(const string& root) {
+	if (root.empty() || (root == ".")) {
+		return -1;
+	}
+
+	int pc = -1;
+	int i = 0;
+	for (; i<(int)root.size(); i++) {
+		char letter = std::toupper((unsigned char)root[i]);
+		switch (letter) {
+			case 'C': pc =  0; break;
+			case 'D': pc =  2; break;
+			case 'E': pc =  4; break;
+			case 'F': pc =  5; break;
+			case 'G': pc =  7; break;
+			case 'A': pc =  9; break;
+			case 'B': pc = 11; break;
+			default: continue;
+		}
+		i++;
+		break;
+	}
+	if (pc < 0) {
+		return -1;
+	}
+
+	while (i < (int)root.size()) {
+		if (root[i] == '#') {
+			pc++;
+			i++;
+			continue;
+		}
+		if (root[i] == '-') {
+			pc--;
+			i++;
+			continue;
+		}
+		if (root.compare(i, 3, "\u266D") == 0) { // ♭
+			pc--;
+			i += 3;
+			continue;
+		}
+		if (root.compare(i, 3, "\u266F") == 0) { // ♯
+			pc++;
+			i += 3;
+			continue;
+		}
+		break;
+	}
+
+	pc %= 12;
+	if (pc < 0) {
+		pc += 12;
+	}
+	return pc;
 }
 
 

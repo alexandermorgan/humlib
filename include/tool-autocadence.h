@@ -126,7 +126,9 @@ class Tool_autocadence : public HumTool {
 		bool        hasClosingVoicesAtArrival  (int index);
 		bool        hasNoEnsuingSuspension     (HumdrumFile& infile, int index);
 		bool        hasPreviousMajorSonority   (int index);
+		bool        hasLeadingToneToRoot       (HumdrumFile& infile, int index);
 		bool        isUppercaseRootObservation (const std::string& root);
+		int         rootObservationToPitchClass(const std::string& root);
 		bool        isSuspensionLabel          (const std::string& label);
 
 	private:
