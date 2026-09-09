@@ -1,7 +1,7 @@
 //
 // Programmer:    Craig Stuart Sapp <craig@ccrma.stanford.edu>
 // Creation Date: Sat Aug  8 12:24:49 PDT 2015
-// Last Modified: Wed Sep  9 11:38:11 CEST 2026
+// Last Modified: Wed Sep  9 11:46:25 CEST 2026
 // Filename:      min/humlib.cpp
 // URL:           https://github.com/craigsapp/humlib/blob/master/min/humlib.cpp
 // Syntax:        C++11
@@ -64152,11 +64152,14 @@ void Tool_autocadence::prepareCadenceLabels(void) {
 	m_cadenceLabels.emplace("Bc",   "Evaded Authentic");
 	m_cadenceLabels.emplace("CQu",  "Evaded Authentic");
 	m_cadenceLabels.emplace("CQux", "Evaded Authentic");
+	m_cadenceLabels.emplace("CTbx", "Evaded Authentic");
+	m_cadenceLabels.emplace("Cuz",  "Evaded Authentic");
 	m_cadenceLabels.emplace("BCu",  "Authentic");
 	m_cadenceLabels.emplace("BCuz", "Authentic");
 	m_cadenceLabels.emplace("BCx",  "Authentic");
 	m_cadenceLabels.emplace("BCxz", "Authentic");
 	m_cadenceLabels.emplace("BCz",  "Authentic");
+	m_cadenceLabels.emplace("BCQ",  "Authentic");
 	m_cadenceLabels.emplace("CQ",   "Inverted Authentic");
 	m_cadenceLabels.emplace("CQT",  "Inverted Authentic");
 	m_cadenceLabels.emplace("CQTt", "Inverted Authentic");
