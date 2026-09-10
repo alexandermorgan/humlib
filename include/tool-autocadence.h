@@ -118,6 +118,18 @@ class Tool_autocadence : public HumTool {
 		std::string getIntervalName            (const std::string& b40);
 		std::string getTriadData               (HumdrumFile& infile, int line);
 		std::string getCadenceLabel            (const std::string& cvflabel, HumdrumFile& infile, int index);
+		void        prepareAuthenticBAnalyses  (HumdrumFile& infile);
+		void        prepareClosingCounts       (HumdrumFile& infile);
+		void        prepareExtremisBassizans   (HumdrumFile& infile);
+		bool        meetsAuthenticBCriteria    (HumdrumFile& infile, int index);
+		bool        hasIncorrectBassizans      (int index);
+		bool        hasClosingVoicesAtArrival  (int index);
+		bool        hasNoEnsuingSuspension     (HumdrumFile& infile, int index);
+		bool        hasPreviousMajorSonority   (int index);
+		bool        hasLeadingToneToRoot       (HumdrumFile& infile, int index);
+		bool        isUppercaseRootObservation (const std::string& root);
+		int         rootObservationToPitchClass(const std::string& root);
+		bool        isSuspensionLabel          (const std::string& label);
 
 	private:
 
@@ -192,6 +204,15 @@ class Tool_autocadence : public HumTool {
 
 		// m_lastmel: The last melodic interval (diatonic)
 		std::vector<std::vector<std::string>> m_lastmel;
+
+		// m_closingCounts: closing-voice count at each line, matching Tool_closing.
+		// Data lines are 0 or more; non-data lines are -1.
+		std::vector<int> m_closingCounts;
+
+		// m_extremisLastmel: last melodic interval of the extremis lowest
+		// line at each original-file line (diatonic interval name as int,
+		// e.g. 4 or -5).  0 means no interval / rest.
+		std::vector<int> m_extremisLastmel;
 
 		bool m_hasSuspensionMarkersQ = false;
 

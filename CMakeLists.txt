@@ -68,6 +68,7 @@ set(SRCS
 	src/HumdrumFileBase-net.cpp
 	src/HumdrumFileBase.cpp
 	src/HumdrumFileContent-accidental.cpp
+	src/HumdrumFileContent-closing.cpp
 	src/HumdrumFileContent-metlev.cpp
 	src/HumdrumFileContent-slur.cpp
 	src/HumdrumFileContent-tie.cpp
@@ -88,9 +89,10 @@ set(SRCS
 	src/tool-binroll.cpp
 	src/tool-chord.cpp
 	src/tool-cint.cpp
+	src/tool-closing.cpp
 	src/tool-deg.cpp
 	src/tool-dissonant.cpp
-	src/tool-esac2hum.cpp
+	src/tool-esac2humx.cpp
 	src/tool-extract.cpp
 	src/tool-fb.cpp
 	src/tool-filter.cpp
@@ -150,6 +152,7 @@ set(HDRS
 	include/tool-binroll.h
 	include/tool-chord.h
 	include/tool-cint.h
+	include/tool-closing.h
 	include/tool-deg.h
 	include/tool-dissonant.h
 	include/tool-esac2hum.h

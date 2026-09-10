@@ -1,7 +1,7 @@
 //
 // Programmer:    Craig Stuart Sapp <craig@ccrma.stanford.edu>
 // Creation Date: Sat Aug  8 12:24:49 PDT 2015
-// Last Modified: Thu Aug 27 11:49:37 AM PDT 2026
+// Last Modified: Thu Sep 10 11:46:54 CEST 2026
 // Filename:      min/humlib.h
 // URL:           https://github.com/craigsapp/humlib/blob/master/min/humlib.h
 // Syntax:        C++11
@@ -2542,6 +2542,13 @@ class HumdrumFileContent : public HumdrumFileStructure {
 		// in HumdrumFileContent-hand.cpp
 		bool   doHandAnalysis             (bool attacksOnlyQ = false);
 		bool   doHandAnalysis             (HTp startSpine, bool attacksOnlyQ = false);
+
+		// in HumdrumFileContent-closing.cpp
+		bool  analyzeClosingRests         (void);
+		bool  analyzeClosingRests         (HTp spinestart);
+		bool  isClosingRest               (HTp token);
+		bool  isClosingAttack             (HTp token);
+		bool  isClosingEvent              (HTp token);
 
 		// in HumdrumFileContent-kern.cpp
 		std::vector<int> getTrackToKernIndex (void);
@@ -6231,6 +6238,18 @@ class Tool_autocadence : public HumTool {
 		std::string getIntervalName            (const std::string& b40);
 		std::string getTriadData               (HumdrumFile& infile, int line);
 		std::string getCadenceLabel            (const std::string& cvflabel, HumdrumFile& infile, int index);
+		void        prepareAuthenticBAnalyses  (HumdrumFile& infile);
+		void        prepareClosingCounts       (HumdrumFile& infile);
+		void        prepareExtremisBassizans   (HumdrumFile& infile);
+		bool        meetsAuthenticBCriteria    (HumdrumFile& infile, int index);
+		bool        hasIncorrectBassizans      (int index);
+		bool        hasClosingVoicesAtArrival  (int index);
+		bool        hasNoEnsuingSuspension     (HumdrumFile& infile, int index);
+		bool        hasPreviousMajorSonority   (int index);
+		bool        hasLeadingToneToRoot       (HumdrumFile& infile, int index);
+		bool        isUppercaseRootObservation (const std::string& root);
+		int         rootObservationToPitchClass(const std::string& root);
+		bool        isSuspensionLabel          (const std::string& label);
 
 	private:
 
@@ -6305,6 +6324,15 @@ class Tool_autocadence : public HumTool {
 
 		// m_lastmel: The last melodic interval (diatonic)
 		std::vector<std::vector<std::string>> m_lastmel;
+
+		// m_closingCounts: closing-voice count at each line, matching Tool_closing.
+		// Data lines are 0 or more; non-data lines are -1.
+		std::vector<int> m_closingCounts;
+
+		// m_extremisLastmel: last melodic interval of the extremis lowest
+		// line at each original-file line (diatonic interval name as int,
+		// e.g. 4 or -5).  0 means no interval / rest.
+		std::vector<int> m_extremisLastmel;
 
 		bool m_hasSuspensionMarkersQ = false;
 
@@ -6841,6 +6869,35 @@ class Tool_cint : public HumTool {
 		std::string SearchString;
 		std::string Spacer;
 
+};
+
+
+class Tool_closing : public HumTool {
+	public:
+		         Tool_closing        (void);
+		        ~Tool_closing        () {};
+
+		bool     run                 (HumdrumFileSet& infiles);
+		bool     run                 (HumdrumFile& infile);
+		bool     run                 (const std::string& indata, std::ostream& out);
+		bool     run                 (HumdrumFile& infile, std::ostream& out);
+
+	protected:
+		void     initialize          (void);
+		void     processFile         (HumdrumFile& infile);
+		void     countClosingVoices  (HumdrumFile& infile);
+		void     markClosingEvents   (HumdrumFile& infile);
+		void     addAnalysisSpine    (HumdrumFile& infile);
+
+	private:
+		// m_counts: closing voice count for each line, or -1 for lines that get
+		// no analysis value (such as non-data lines).
+		std::vector<int> m_counts;
+		bool        m_markQ        = false;
+		std::string m_attackMarker = "@";
+		std::string m_restMarker   = "N";
+		std::string m_attackColor  = "dodgerblue";
+		std::string m_restColor    = "orange";
 };
 
 
