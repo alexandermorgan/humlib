@@ -401,6 +401,10 @@ void Tool_autocadence::processFile(HumdrumFile& infile) {
 	// identify dissonances
 	prepareDissonances(infile);
 
+	// Closing rests must be marked before interval pairings are built,
+	// so a simultaneous close-to-rest counts as an observation.
+	infile.analyzeClosingRests();
+
 	// fill m_intervals
 	prepareIntervalInfo(infile);
 	if (m_intervalsOnlyQ) {
@@ -1865,7 +1869,6 @@ void Tool_autocadence::prepareAuthenticBAnalyses(HumdrumFile& infile) {
 //
 
 void Tool_autocadence::prepareClosingCounts(HumdrumFile& infile) {
-	infile.analyzeClosingRests();
 	m_closingCounts.clear();
 	m_closingCounts.resize(infile.getLineCount(), -1);
 
@@ -2176,7 +2179,8 @@ bool Tool_autocadence::isUppercaseRootObservation(const string& root) {
 //     arrival-chord root at the cadential arrival, approached in that same
 //     voice by a rising semitone (the leading tone).  A leading tone that
 //     merely sounds in another voice, or that does not resolve in the same
-//     voice, does not count.
+//     voice, does not count.  A unison/octave arrival has no --root token;
+//     the shared sounding pitch class is still treated as the root.
 //
 
 bool Tool_autocadence::hasLeadingToneToRoot(HumdrumFile& infile, int index) {
@@ -2187,10 +2191,7 @@ bool Tool_autocadence::hasLeadingToneToRoot(HumdrumFile& infile, int index) {
 		return false;
 	}
 
-	int rootPc = -1;
-	if (index < (int)m_root.size()) {
-		rootPc = rootObservationToPitchClass(m_root[index]);
-	}
+	int rootPc = arrivalRootPitchClass(infile, index);
 	if (rootPc < 0) {
 		return false;
 	}
@@ -2237,6 +2238,44 @@ bool Tool_autocadence::hasLeadingToneToRoot(HumdrumFile& infile, int index) {
 		}
 	}
 	return false;
+}
+
+
+
+//////////////////////////////
+//
+// Tool_autocadence::arrivalRootPitchClass -- Pitch class (C=0) of the
+//     arrival sonority.  Prefer the --root observation; when that is missing
+//     (unison/octave arrivals print "."), use the single shared sounding
+//     pitch class.  Mixed unclassified sonorities return -1.
+//
+
+int Tool_autocadence::arrivalRootPitchClass(HumdrumFile& infile, int index) {
+	if (index < 0 || index >= infile.getLineCount()) {
+		return -1;
+	}
+	if (index < (int)m_root.size()) {
+		int rootPc = rootObservationToPitchClass(m_root[index]);
+		if (rootPc >= 0) {
+			return rootPc;
+		}
+	}
+
+	vector<int> midis = infile[index].getMidiPitchesResolveNull();
+	int found = -1;
+	for (int midi : midis) {
+		int m = midi < 0 ? -midi : midi;
+		if (m <= 0) {
+			continue;
+		}
+		int pc = m % 12;
+		if (found < 0) {
+			found = pc;
+		} else if (found != pc) {
+			return -1;
+		}
+	}
+	return found;
 }
 
 
@@ -2700,7 +2739,8 @@ void Tool_autocadence::generateCounterpointStrings(vector<HTp>& kspines, int vin
 		return;
 	}
 
-	// Remove cases where there is not at least one note attack in the pairings.
+	// Keep slices with a note attack in either voice, or where both voices
+	// move to a closing rest.  Double-sustains (no new attack) are skipped.
 	vector<vector<HTp>> newpairings(2);
 	newpairings[0].reserve(10000);
 	newpairings[1].reserve(10000);
@@ -2708,9 +2748,15 @@ void Tool_autocadence::generateCounterpointStrings(vector<HTp>& kspines, int vin
 		if (pairings[0][i]->isNullToken() && pairings[1][i]->isNullToken()) {
 			continue;
 		}
-		if (!(pairings[0][i]->isNoteAttack() || pairings[1][i]->isNoteAttack())) {
-			// both notes are sustaining in this slice.
-			// deal with rests here as well, allowing one rest slice between note pairings.
+		bool attackQ = pairings[0][i]->isNoteAttack() ||
+				pairings[1][i]->isNoteAttack();
+		bool closingRestQ = pairings[0][i]->isRest() &&
+				pairings[1][i]->isRest() &&
+				pairings[0][i]->getValueBool("auto", "closingRest") &&
+				pairings[1][i]->getValueBool("auto", "closingRest");
+		if (!attackQ && !closingRestQ) {
+			// Skip slices where both voices sustain without a new attack.
+			// A pair of closing rests (both voices stop sounding) is kept.
 			continue;
 		}
 		//if (pairings[0][i]->isRest() || pairings[1][i]->isRest()) {
@@ -2927,7 +2973,6 @@ void Tool_autocadence::prepareCadenceDefinitions(void) {
 	/*   9 */ addCadenceDefinition("B", "C",	"BC2",	R"(^(?:R_1|4D?_1|-?\d+_-?[^1]), 4D_1:-2, 3_1:-2, 2_1:2, 3_1:1, 3_-5:2, 8_)");
 	/*  10 */ addCadenceDefinition("B", "C",	"BC3",	R"(^(?:R_1|4D?_1|-?\d+_-?[^1]):1, 4D_1:-2, 3_(?:4|-5):2, 8_)");
 	/*  11 */ addCadenceDefinition("B", "C",	"BC4",	R"(^(?:R_1|4D?_1|-?\d+_-?[^1]):1, 4D_1:-2, 3_1:-2, 2_-5:3, 8_)");
-	/*  12 */ addCadenceDefinition("B", "C",	"BC5",	R"(^(?:R_1|4D?_1|-?\d+_-?[^1]):1, 4D_1:-2, 3_1:-2, 2_1:2, 3_-5:2, 8_)");
 	/*  13 */ addCadenceDefinition("B", "C",	"BC6",	R"(^(?:R_1|4D?_1|-?\d+_-?[^1]):1, 4D_1:-2, 3_1:1, 3_(?:4|-5):2, 8_)");
 	/*  14 */ addCadenceDefinition("B", "C",	"BC7",	R"(^(?:R_1|4D?_1|-?\d+_-?[^1]):1, 4D_1:-2, 3_1:1, 3_1:-2, 2_-5:3, 8_)");
 	/*  15 */ addCadenceDefinition("B", "C",	"BC8",	R"(^(?:R_1|4D?_1|-?\d+_-?[^1]):1, 4D_1:-2, 3_1:1, 3_1:-2, 2_1:2, 3_-5:2, 8_)");
@@ -2935,6 +2980,7 @@ void Tool_autocadence::prepareCadenceDefinitions(void) {
 	/*  17 */ addCadenceDefinition("B", "C",	"BC10",	R"(^3_1:2, 4D_1:-2, 3_(?:4|-5):2, (?:1|8)_)");
 	/*  18 */ addCadenceDefinition("B", "C",	"BC11",	R"(^5_1:-2, 4D_1:-2, 3_(?:4|-5):2, (?:1|8)_)");
 	/*  19 */ addCadenceDefinition("B", "c",	"Bc1",	R"(^(?:R_1|4D?_1|-?\d+_-?[^1]):1, 4D_1:-2, 3_(?:4|-5):(?:4|-5), 3_)");
+	/* 123 */ addCadenceDefinition("B", "c",	"Bc2",	R"(^(?:R_1|4D?_1|-?\d+_-?[^1]):1, 4D_1:-2, 3_(?:4|-5):-2, 6_)");
 	/*  10 */ addCadenceDefinition("B", "y",	"By1",	R"(^(?:R_1|4D?_1|-?\d+_-?[^1]):1, 4D_1:-2, 3_(?:4|-5):R, R_)");
 	/*  20 */ addCadenceDefinition("C", "B",	"CB1",	R"(^(?:-?\d+|R)_1:-?\d+, -4D_-2:1, -3_-2:1, -2_2:1, -3_2:(?:-5|4), -8_)");
 	/*  21 */ addCadenceDefinition("C", "B",	"CB2",	R"(^(?:-?\d+|R)_1:-?\d+, -4D_-2:1, -3_-2:1, -2_2:1, -3_2:4, (?:1|-8)_)");
@@ -2946,6 +2992,7 @@ void Tool_autocadence::prepareCadenceDefinitions(void) {
 	/*  27 */ addCadenceDefinition("C", "B",	"CB8",	R"(^(?:-?\d+|R)_1:-?\d+, -4D_-2:1, -3_2:4, -8_)");
 	/*  28 */ addCadenceDefinition("C", "B",	"CB9",	R"(^(?:-?\d+|R)_1:-?\d+, -4D_-2:1, -3_2:4, 1_)");
 	/*  29 */ addCadenceDefinition("C", "Q",	"CQ1",	R"(^(?:-?\d+|R)_1:-?\d+, 2_-2:1, 3_2:(?:-5|4), 5_)");
+	/*  29 */ addCadenceDefinition("C", "Q",	"CQ2",	R"(^(?:-?\d+|R)_1:-?\d+, 2_-2:1, 3_-2:1, 4_2:1, 3_2:(?:-5|4), 5_)");
 	/*  30 */ addCadenceDefinition("C", "T",	"CT1",	R"(^(?:-?\d+|R)_1:-?\d+, -7_-2:1, -6_-2:1, -5_2:1, -6_2:-2, -8_)");
 	/*  31 */ addCadenceDefinition("C", "T",	"CT2",	R"(^(?:-?\d+|R)_1:-?\d+, -7_-2:1, -6_-2:1, -5_3:-2, -8_)");
 	/*  32 */ addCadenceDefinition("C", "T",	"CT3",	R"(^(?:-?\d+|R)_1:-?\d+, -7_-2:1, -6_1:1, -6_-2:1, -5_3:-2, -8_)");
@@ -2958,12 +3005,13 @@ void Tool_autocadence::prepareCadenceDefinitions(void) {
 	/*  39 */ addCadenceDefinition("C", "T",	"CT10",	R"(^(?:-?\d+|R)_1:-?\d+, 2_-2:1, 3_2:-2, (?:1|8)_)");
 	/*  40 */ addCadenceDefinition("C", "T",	"CT11",	R"(^3_2:1, 2_-2:1, 3_2:-2, (?:1|8)_)");
 //	/*  41 */ addCadenceDefinition("C", "T",	"CT11",	R"(^8_-2:1, 2_-2:1, 3_2:-2, (?:1|8)_)");
-	/*  41 */ addCadenceDefinition("C", "t",	"Ct1",	R"(^(?:-?\d+|R)_1:(?:-?\d+|R), 2_-2:1, 3_1:1, 3_1:1, 3_2:2, 3_)");
-	/*  42 */ addCadenceDefinition("C", "t",	"ct1",	R"(^(?:-?\d+|R)_1:-?\d+, 2_-2:1, 3_-2:1, 4D?_2:1, 3_1:1, 3_2:2, 3_)");
-	/*  43 */ addCadenceDefinition("C", "t",	"ct2",	R"(^(?:-?\d+|R)_1:-?\d+, 2_-2:1, 3_1:1, 3_-2:1, 4D?_2:1, 3_2:2, 3_)");
-	/*  44 */ addCadenceDefinition("C", "t",	"ct3",	R"(^(?:-?\d+|R)_1:-?\d+, 2_-2:1, 3_2:2, 3_)");
-	/*  45 */ addCadenceDefinition("C", "t",	"ct4",	R"(^3_2:1, 2_-2:1, 3_2:2, 3_)");
-	/*  42 */ addCadenceDefinition("C", "t",	"ct5",	R"(^(?:-?\d+|R)_1:-?\d+, 2_-2:1, 3_-2:1, 4D?_2:1, 3_2:2, 3_)");
+	/*  42 */ addCadenceDefinition("C", "t",	"Ct1",	R"(^(?:-?\d+|R)_1:-?\d+, 2_-2:1, 3_-2:1, 4D?_2:1, 3_1:1, 3_2:2, 3_)");
+	/*  43 */ addCadenceDefinition("C", "t",	"Ct2",	R"(^(?:-?\d+|R)_1:-?\d+, 2_-2:1, 3_1:1, 3_-2:1, 4D?_2:1, 3_2:2, 3_)");
+	/*  44 */ addCadenceDefinition("C", "t",	"Ct3",	R"(^(?:-?\d+|R)_1:-?\d+, 2_-2:1, 3_2:2, 3_)");
+	/*  45 */ addCadenceDefinition("C", "t",	"Ct4",	R"(^3_2:1, 2_-2:1, 3_2:2, 3_)");
+	/*  42 */ addCadenceDefinition("C", "t",	"Ct5",	R"(^(?:-?\d+|R)_1:-?\d+, 2_-2:1, 3_-2:1, 4D?_2:1, 3_2:2, 3_)");
+	/*  41 */ addCadenceDefinition("C", "t",	"Ct6",	R"(^(?:-?\d+|R)_1:(?:-?\d+|R), 2_-2:1, 3_1:1, 3_1:1, 3_2:2, 3_)");
+	/*  41 */ addCadenceDefinition("C", "t",	"ct1",	R"(^(?:-?\d+|R)_1:(?:-?\d+|R), 2_-2:1, 3_1:1, 3_1:-2, 2_1:-2, 1_1:2, 2_)");
 	/*  46 */ addCadenceDefinition("C", "u",	"Cu1",	R"(^(?:-?\d+|R)_1:-?\d+, -4D_-2:1, -3_-2:1, -2_2:1, -3_2:-3, -6_)");
 	/*  47 */ addCadenceDefinition("C", "u",	"Cu2",	R"(^(?:-?\d+|R)_1:-?\d+, -4D_-2:1, -3_-2:1, -2_3:-3, -6_)");
 	/*  48 */ addCadenceDefinition("C", "u",	"Cu3",	R"(^(?:-?\d+|R)_1:-?\d+, -4D_-2:1, -3_1:1, -3_-2:1, -2_3:-3, -6_)");
@@ -3008,8 +3056,9 @@ void Tool_autocadence::prepareCadenceDefinitions(void) {
 	/*  89 */ addCadenceDefinition("T", "C",	"TC17",	R"(^(?:R_1|-?\d+_-?[^1]):1, -2_1:-2, -3_1:-2, -4D?_-2:3, (?:1|-8)_)");
 	/*  90 */ addCadenceDefinition("T", "C",	"TC18",	R"(^(?:R_1|-?\d+_-?[^1]):1, -2_1:-2, -3_1:-2, -4D?_1:2, -3_-2:2, (?:1|-8)_)");
 	/*  91 */ addCadenceDefinition("T", "C",	"TC19",	R"(^(?:R_1|-?\d+_-?[^1]):1, -2_1:-2, -3_1:1, -3_1:-2, -4D?_-2:3, (?:1|-8)_)");
-	/*  92 */ addCadenceDefinition("T", "C",	"TC20",	R"(^6_1:2, 7_1:-2, 6_-2:2, 8_)");
-	/*  93 */ addCadenceDefinition("T", "C",	"TC21",	R"(^8_1:-2, 7_1:-2, 6_-2:2, 8_)");
+	/*  88 */ addCadenceDefinition("T", "C",	"TC20",	R"(^(?:R_1|-?\d+_-?[^1]):1, -2_1:-2, -3_1:1, -3_-2:2, (?:1|-8)_)");
+	/*  92 */ addCadenceDefinition("T", "C",	"TC21",	R"(^6_1:2, 7_1:-2, 6_-2:2, 8_)");
+	/*  93 */ addCadenceDefinition("T", "C",	"TC22",	R"(^8_1:-2, 7_1:-2, 6_-2:2, 8_)");
 	/*  94 */ addCadenceDefinition("T", "a",	"Ta1",	R"(^(?:-?\d+_-?[^1]):1, 4D_1:-2, 3_-2:-2, 3_)");
 	/*  95 */ addCadenceDefinition("T", "c",	"Tc1",	R"(^(?:R_1|-?\d+_-?[^1]):1, 7_1:-2, 6_-2:4, 3_)");
 	/*  96 */ addCadenceDefinition("T", "y",	"Ty1",	R"(^(?:R_1|-?\d+_-?[^1]):1, 7_1:-2, 6_-2:R, R_)");
@@ -3039,12 +3088,16 @@ void Tool_autocadence::prepareCadenceDefinitions(void) {
 	/* 120 */ addCadenceDefinition("x", "C",	"xC1",	R"(^(?:-?\d+_-?[^1]):1, 4D_1:-2, 3_R:2, R_)");
 	/* 121 */ addCadenceDefinition("x", "C",	"xC2",	R"(^3_1:2, 4D_1:-2, 3_R:2, R_)");
 	/* 122 */ addCadenceDefinition("x", "C",	"xC3",	R"(^5_1:-2, 4D_1:-2, 3_R:2, R_)");
+	/* 120 */ addCadenceDefinition("x", "C",	"xC1",	R"(^(?:-?\d+_-?[^1]):1, 4D_1:-2, 3_1:-2, 2_1:2, 3_R:2, R_)");
 	/* 123 */ addCadenceDefinition("x", "c",	"xc1",	R"(^(?:R_1|4_1|-?\d+_-?[^1]):1, 4D_1:-2, 3_R:-2, R_)");
+	/* 123 */ addCadenceDefinition("x", "y",	"xy1",	R"(^(?:R_1|4D?_1|-?\d+_-?[^1]):1, 4D_1:-2, 3_R:R, R_)");
 	/* 124 */ addCadenceDefinition("y", "z",	"yz1",	R"(^(?:-?\d+|R)_1:-?\d+, 2_-2:1, 3_R:R, R_)");
+	/* 125 */ addCadenceDefinition("z", "C",	"zC1",	R"(^(?:R_1|7_1|-?\d+_-?[^1]):1, 7_1:-2, 6_1:-2, 5_1:2, 6_R:2, R_)");
 	/* 125 */ addCadenceDefinition("z", "C",	"zC2",	R"(^(?:R_1|7_1|-?\d+_-?[^1]):1, 7_1:-2, 6_1:1, 6_R:2, R_)");
 	/* 126 */ addCadenceDefinition("z", "C",	"zC3",	R"(^(?:R_1|-?\d+_-?[^1]):1, -2_1:-2, -3_1:1, -3_R:2, R_)");
 	/* 127 */ addCadenceDefinition("z", "C",	"zC4",	R"(^(?:R_1|-?\d+_-?[^1]):1, -2_1:-2, -3_R:2, R_)");
 	/* 128 */ addCadenceDefinition("z", "C",	"zC5",	R"(^(?:R_1|-?\d+_-?[^1]):1, 7_1:-2, 6_R:2, R_)");
+	/* 125 */ addCadenceDefinition("z", "C",	"zC6",	R"(^(?:R_1|-?\d+_-?[^1]):1, -2_1:-2, -3_1:-2, -4_1:2, -3_R:2, R_)");
 	/* 129 */ addCadenceDefinition("z", "c",	"zc1",	R"(^(?:R_1|-?\d+_-?[^1]):1, -2_1:-2, -3_R:-2, R_)");
 	/* 130 */ addCadenceDefinition("z", "c",	"zc2",	R"(^(?:R_1|-?\d+_-?[^1]):1, 7_1:-2, 6_R:-2, R_)");
 	/* 131 */ addCadenceDefinition("z", "y",	"zy1",	R"(^(?:R_1|-?\d+_-?[^1]):1, -2_1:-2, -3_1:1, -3_R:R, R_)");
@@ -3087,13 +3140,14 @@ void Tool_autocadence::prepareCadenceLabels(void) {
 	m_cadenceLabels.emplace("BC",   "Authentic");
 	m_cadenceLabels.emplace("BCT",  "Authentic");
 	m_cadenceLabels.emplace("BCTu", "Authentic");
-	m_cadenceLabels.emplace("CTb",  "Authentic");
 	m_cadenceLabels.emplace("BCt",  "Authentic");
 	m_cadenceLabels.emplace("BCtz", "Authentic");
 	m_cadenceLabels.emplace("BCt",  "Evaded Authentic");
 	m_cadenceLabels.emplace("Bc",   "Evaded Authentic");
+	m_cadenceLabels.emplace("Bcx",  "Evaded Authentic");
 	m_cadenceLabels.emplace("CQu",  "Evaded Authentic");
 	m_cadenceLabels.emplace("CQux", "Evaded Authentic");
+	m_cadenceLabels.emplace("CTb",  "Evaded Authentic");
 	m_cadenceLabels.emplace("CTbx", "Evaded Authentic");
 	m_cadenceLabels.emplace("Cuz",  "Evaded Authentic");
 	m_cadenceLabels.emplace("BCu",  "Authentic");
