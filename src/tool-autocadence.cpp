@@ -1101,14 +1101,13 @@ void Tool_autocadence::printMatchCount(void) {
 //
 
 void Tool_autocadence::searchIntervalSequences(void) {
-	HumRegex hre;
 	m_matches.clear();
 	for (int i=0; i<(int)m_sequences.size(); i++) {
 		for (int j=0; j<(int)m_sequences[i].size(); j++) {
 			for (int k=0; k<(int)m_sequences[i][j].size(); k++) {
 				string& feature = get<0>(m_sequences.at(i).at(j).at(k));
 				for (int m=0; m<(int)m_definitions.size(); m++) {
-					if (hre.search(feature, m_definitions.at(m).m_regex)) {
+					if (regex_search(feature, m_definitions.at(m).m_compiled)) {
 						vector<int>& matches = get<3>(m_sequences.at(i).at(j).at(k));
 						// cerr << "FOUND MATCH: " << m << endl;
 						matches.push_back(m);

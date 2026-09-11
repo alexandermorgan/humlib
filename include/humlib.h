@@ -6155,12 +6155,14 @@ class Tool_autocadence : public HumTool {
 			std::string m_funcU;
 			std::string m_name;
 			std::string m_regex;
+			std::regex  m_compiled;
 			void setDefinition(const std::string& funcL, const std::string& funcU,
 					const std::string& name, const std::string& regex) {
 				m_funcL = funcL;
 				m_funcU = funcU;
 				m_name = name;
 				m_regex = regex;
+				m_compiled.assign(regex);
 				// int count = std::count(text.begin(), text.end(), target);
 			}
 	};

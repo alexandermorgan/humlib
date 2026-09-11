@@ -1,7 +1,7 @@
 //
 // Programmer:    Craig Stuart Sapp <craig@ccrma.stanford.edu>
 // Creation Date: Sat Aug  8 12:24:49 PDT 2015
-// Last Modified: Thu Sep 10 11:46:54 CEST 2026
+// Last Modified: Fri Sep 11 15:17:31 CEST 2026
 // Filename:      min/humlib.h
 // URL:           https://github.com/craigsapp/humlib/blob/master/min/humlib.h
 // Syntax:        C++11
@@ -6155,12 +6155,14 @@ class Tool_autocadence : public HumTool {
 			std::string m_funcU;
 			std::string m_name;
 			std::string m_regex;
+			std::regex  m_compiled;
 			void setDefinition(const std::string& funcL, const std::string& funcU,
 					const std::string& name, const std::string& regex) {
 				m_funcL = funcL;
 				m_funcU = funcU;
 				m_name = name;
 				m_regex = regex;
+				m_compiled.assign(regex);
 				// int count = std::count(text.begin(), text.end(), target);
 			}
 	};
